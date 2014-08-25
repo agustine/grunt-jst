@@ -1,0 +1,49 @@
+{
+  "name": "grunt-jst",
+  "description": "Precompile Underscore templates to JST file.",
+  "version": "0.0.1",
+  "homepage": "https://github.com/agustine/grunt-jst",
+  "author": {
+    "name": "叶晓毅"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/agustine/grunt-jst.git"
+  },
+  "bugs": {
+    "url": ""
+  },
+  "licenses": [
+    {
+      "type": "MIT",
+      "url": "https://github.com/agustine/grunt-jst/blob/master/LICENSE"
+    }
+  ],
+  "engines": {
+    "node": ">= 0.10.0"
+  },
+  "scripts": {
+    "test": "grunt test"
+  },
+  "dependencies": {
+    "lodash": "~2.4.1",
+    "chalk": "~0.5.0"
+  },
+  "devDependencies": {
+    "grunt-contrib-jshint": "~0.10.0",
+    "grunt-contrib-nodeunit": "~0.4.1",
+    "grunt-contrib-clean": "~0.5.0",
+    "grunt-contrib-internal": "~0.4.5",
+    "grunt": "~0.4.2"
+  },
+  "peerDependencies": {
+    "grunt": "~0.4.0"
+  },
+  "keywords": [
+    "gruntplugin"
+  ],
+  "files": [
+    "tasks",
+    "LICENSE-MIT"
+  ]
+}
