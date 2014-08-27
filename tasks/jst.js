@@ -12,17 +12,13 @@ var chalk = require('chalk');
 var path = require('path');
 
 module.exports = function (grunt) {
-    // filename conversion for templates
-    var defaultProcessName = function (name) {
-        return name;
-    };
-
 
 
     grunt.registerMultiTask('jst', 'Compile underscore templates to JST file', function () {
         var lf = grunt.util.linefeed;
         var lib = require('./lib/jst');
         var files = this.files;
+        var file = grunt.file;
         var options = this.options({
             namespace: 'JST',
             amd: false,
@@ -43,56 +39,81 @@ module.exports = function (grunt) {
             separator: lf + lf
         });
 
-        var importPartial = function(source){
-        };
-
-        // assign filename transformation functions
-        var processName = options.processName || defaultProcessName;
-
         var nsInfo;
         if (options.namespace !== false) {
             nsInfo = lib.getNamespaceDeclaration(options.namespace);
         }
 
         files.forEach(function(f){
-            var sources = {};
+            var completed = [];
+            var output = [];
             var dest = f.dest;
             f.src.forEach(function(filePath){
                 var templateName = options.processTemplateName(filePath);
+
+                var sourceContent;
+                var imported = [];
                 // Warn on and remove invalid source files (if nonull was set).
-                if (!grunt.file.exists(filePath)) {
+                if (!file.exists(filePath)) {
                     grunt.log.warn('Source file ' + chalk.cyan(filePath) + ' not found.');
                     return;
                 }
 
-                if(templateName in sources){
-                    grunt.log.warn('More then one template are processed as same template name ' + chalk.cyan(templateName));
+                if(_.contains(completed, templateName)){
+                    grunt.log.warn('More then one templates are processed as same template name ' + chalk.cyan(templateName));
                     return;
                 }
 
+                function importPartial(filePath){
+                    var src = options.processContent(file.read(filePath));
+                    var dirPath = path.dirname(filePath);
+                    if(_.contains(imported, filePath)){
+                        grunt.log.warn('An infinite loop may occur in importing partial template (' + chalk.cyan(filePath) + ')');
+                        return ''
+                    }
+                    imported.push(filePath);
+                    if(!options.templateSettings.partial.test(src)){
+                        return src;
+                    }
+
+                    src.replace(options.templateSettings.partial, function(s, partialPath){
+                        partialPath = path.resolve(dirPath, partialPath);
+                        if (!file.exists(partialPath)) {
+                            grunt.log.warn('Partial template source file ' + chalk.cyan(partialPath) + ' not found.');
+                            return '';
+                        }
+                        return importPartial(partialPath);
+                    });
+                }
+
+                sourceContent = templateName + ': ' + _.template(importPartial(filePath);
+                if(options.prettify){
+                    sourceContent = sourceContent.replace(/\n/g, '');;
+                }
                 try {
-                    sources[templateName] = _.template(
-                        options.processContent(grunt.file.read(filePath)),
-                        false,
-                        options.templateSettings).source;
+                    output.push(sourceContent, false, options.templateSettings).source);
+                    completed.push(templateName);
                 } catch (e) {
                     grunt.log.error(e);
-                    grunt.fail.warn('JST ' + chalk.cyan(filePath) + ' failed to compile.');
+                    grunt.fail.warn('JST ' + chalk.cyan(filepath) + ' failed to compile.');
                 }
+
             });
+
+            nsInfo.namespace + ' = ' +
         });
 
         files.forEach(function (f) {
             var output = f.src.filter(function (filepath) {
                 // Warn on and remove invalid source files (if nonull was set).
-                if (!grunt.file.exists(filepath)) {
+                if (!file.exists(filepath)) {
                     grunt.log.warn('Source file ' + chalk.cyan(filepath) + ' not found.');
                     return false;
                 } else {
                     return true;
                 }
             }).map(function (filepath) {
-                var src = options.processContent(grunt.file.read(filepath));
+                var src = options.processContent(file.read(filepath));
                 var compiled, filename;
 
                 try {
@@ -133,7 +154,7 @@ module.exports = function (grunt) {
                     }
                     output.push("});");
                 }
-                grunt.file.write(f.dest, output.join(grunt.util.normalizelf(options.separator)));
+                file.write(f.dest, output.join(grunt.util.normalizelf(options.separator)));
                 grunt.log.writeln('File ' + chalk.cyan(f.dest) + ' created.');
             }
         });
