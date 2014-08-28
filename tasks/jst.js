@@ -1,21 +1,11 @@
-/*
- * grunt-contrib-jst
- * http://gruntjs.com/
- *
- * Copyright (c) 2014 Tim Branyen, contributors
- * Licensed under the MIT license.
- */
-
 'use strict';
 var _ = require('lodash');
 var chalk = require('chalk');
 var path = require('path');
+var esformatter = require('esformatter');
 
 module.exports = function (grunt) {
-
-
     grunt.registerMultiTask('jst', 'Compile underscore templates to JST file', function () {
-        var lf = grunt.util.linefeed;
         var lib = require('./lib/jst');
         var files = this.files;
         var file = grunt.file;
@@ -23,7 +13,7 @@ module.exports = function (grunt) {
             namespace: 'JST',
             amd: false,
             cmd: false,
-            processTemplateName: function(fileName){
+            processTemplateName: function (fileName) {
                 var extName = path.extname(fileName);
                 return path.basename(fileName, extName);
             },
@@ -36,7 +26,7 @@ module.exports = function (grunt) {
             processContent: function (src) {
                 return src;
             },
-            separator: lf + lf
+            underscore: false
         });
 
         var nsInfo;
@@ -44,11 +34,12 @@ module.exports = function (grunt) {
             nsInfo = lib.getNamespaceDeclaration(options.namespace);
         }
 
-        files.forEach(function(f){
+        files.forEach(function (f) {
             var completed = [];
             var output = [];
+            var destSource;
             var dest = f.dest;
-            f.src.forEach(function(filePath){
+            f.src.forEach(function (filePath) {
                 var templateName = options.processTemplateName(filePath);
 
                 var sourceContent;
@@ -59,24 +50,24 @@ module.exports = function (grunt) {
                     return;
                 }
 
-                if(_.contains(completed, templateName)){
+                if (_.contains(completed, templateName)) {
                     grunt.log.warn('More then one templates are processed as same template name ' + chalk.cyan(templateName));
                     return;
                 }
 
-                function importPartial(filePath){
+                function importPartial(filePath) {
                     var src = options.processContent(file.read(filePath));
                     var dirPath = path.dirname(filePath);
-                    if(_.contains(imported, filePath)){
+                    if (_.contains(imported, filePath)) {
                         grunt.log.warn('An infinite loop may occur in importing partial template (' + chalk.cyan(filePath) + ')');
                         return ''
                     }
                     imported.push(filePath);
-                    if(!options.templateSettings.partial.test(src)){
+                    if (!options.templateSettings.partial.test(src)) {
                         return src;
                     }
 
-                    src.replace(options.templateSettings.partial, function(s, partialPath){
+                    src = src.replace(options.templateSettings.partial, function (s, partialPath) {
                         partialPath = path.resolve(dirPath, partialPath);
                         if (!file.exists(partialPath)) {
                             grunt.log.warn('Partial template source file ' + chalk.cyan(partialPath) + ' not found.');
@@ -84,14 +75,14 @@ module.exports = function (grunt) {
                         }
                         return importPartial(partialPath);
                     });
+                    return src;
                 }
 
-                sourceContent = templateName + ': ' + _.template(importPartial(filePath);
-                if(options.prettify){
-                    sourceContent = sourceContent.replace(/\n/g, '');;
-                }
+                sourceContent = templateName + ': ' + _.template(
+                    importPartial(filePath), false, options.templateSettings);
+
                 try {
-                    output.push(sourceContent, false, options.templateSettings).source);
+                    output.push(sourceContent);
                     completed.push(templateName);
                 } catch (e) {
                     grunt.log.error(e);
@@ -100,64 +91,34 @@ module.exports = function (grunt) {
 
             });
 
-            nsInfo.namespace + ' = ' +
-        });
 
-        files.forEach(function (f) {
-            var output = f.src.filter(function (filepath) {
-                // Warn on and remove invalid source files (if nonull was set).
-                if (!file.exists(filepath)) {
-                    grunt.log.warn('Source file ' + chalk.cyan(filepath) + ' not found.');
-                    return false;
-                } else {
-                    return true;
+            if (options.cmd) {
+                destSource = 'define(function(require, exports, module) {\n ';
+                if (options.underscore) {
+                    destSource += 'var _ = require(\'' + options.underscore + '\'); \n';
                 }
-            }).map(function (filepath) {
-                var src = options.processContent(file.read(filepath));
-                var compiled, filename;
-
-                try {
-                    compiled = _.template(src, false, options.templateSettings).source;
-                } catch (e) {
-                    grunt.log.error(e);
-                    grunt.fail.warn('JST ' + chalk.cyan(filepath) + ' failed to compile.');
+                destSource += ' module.exports = {\n' + output.join(',\n') + '\n};\n});';
+            } else if (options.amd) {
+                destSource = 'define(function(){\n ';
+                if (options.underscore) {
+                    destSource = 'define([\'' + options.underscore + '\'], function(_){';
                 }
-
-                if (options.prettify) {
-                    compiled = compiled.replace(/\n/g, '');
-                }
-                filename = processName(filepath);
-
-                if (options.amd && options.namespace === false) {
-                    return 'return ' + compiled;
-                }
-                return nsInfo.namespace + '[' + JSON.stringify(filename) + '] = ' + compiled + ';';
-            });
-
-            if (output.length < 1) {
-                grunt.log.warn('Destination not written because compiled files were empty.');
+                destSource += ' return {\n' + output.join(',\n') + '\n};\n});';
             } else {
-                if (options.namespace !== false) {
-                    output.unshift(nsInfo.declaration);
-                }
-                if (options.amd) {
-                    if (options.prettify) {
-                        output.forEach(function (line, index) {
-                            output[index] = "  " + line;
-                        });
-                    }
-                    output.unshift("define(function(){");
-                    if (options.namespace !== false) {
-                        // Namespace has not been explicitly set to false; the AMD
-                        // wrapper will return the object containing the template.
-                        output.push("  return " + nsInfo.namespace + ";");
-                    }
-                    output.push("});");
-                }
-                file.write(f.dest, output.join(grunt.util.normalizelf(options.separator)));
-                grunt.log.writeln('File ' + chalk.cyan(f.dest) + ' created.');
+                destSource = nsInfo.declaration + '\n';
+                destSource += nsInfo.namespace + ' = {\n';
+                destSource += output.join(',\n');
+                destSource += '\n}';
             }
-        });
 
+
+            destSource = esformatter.format(destSource, {
+                indent: {
+                    value: '    '
+                }
+            });
+            file.write(dest, destSource);
+            grunt.log.writeln('File ' + chalk.cyan(f.dest) + ' created.');
+        });
     });
 };
