@@ -26,7 +26,8 @@ module.exports = function (grunt) {
             processContent: function (src) {
                 return src;
             },
-            underscore: false
+            underscore: false,
+            charset: 'utf-8'
         });
 
         var nsInfo;
@@ -41,7 +42,9 @@ module.exports = function (grunt) {
             var dest = f.dest;
             f.src.forEach(function (filePath) {
                 var templateName = options.processTemplateName(filePath);
-
+                if(!templateName){
+                    return;
+                }
                 var sourceContent;
                 var imported = [];
                 // Warn on and remove invalid source files (if nonull was set).
@@ -56,7 +59,7 @@ module.exports = function (grunt) {
                 }
 
                 function importPartial(filePath) {
-                    var src = options.processContent(file.read(filePath));
+                    var src = options.processContent(file.read(filePath, {encoding: options.charset}));
                     var dirPath = path.dirname(filePath);
                     if (_.contains(imported, filePath)) {
                         grunt.log.warn('An infinite loop may occur in importing partial template (' + chalk.cyan(filePath) + ')');
@@ -117,7 +120,7 @@ module.exports = function (grunt) {
                     value: '    '
                 }
             });
-            file.write(dest, destSource);
+            file.write(dest, destSource, {encoding: options.charset});
             grunt.log.writeln('File ' + chalk.cyan(f.dest) + ' created.');
         });
     });
