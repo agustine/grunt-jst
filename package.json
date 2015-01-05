@@ -1,7 +1,7 @@
 {
     "name": "grunt-jst",
     "description": "把underscore模版编译为jst的gruntjs任务插件，并支持模版嵌套，增加cmd包装器支持",
-    "version": "0.0.2",
+    "version": "0.0.3",
     "homepage": "https://github.com/agustine/grunt-jst",
     "author": {
         "name": "叶晓毅"

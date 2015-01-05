@@ -67,6 +67,11 @@ module.exports = function (grunt) {
                         return ''
                     }
                     imported.push(filePath);
+
+                    if (!options.templateSettings.partial){
+                        return src;
+                    }
+
                     if (!options.templateSettings.partial.test(src)) {
                         return src;
                     }
